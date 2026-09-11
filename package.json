@@ -1,0 +1,20 @@
+{
+  "name": "byd-atto2-calcolo-ricariche",
+  "version": "1.0.0",
+  "description": "App di pianificazione ricarica EV solare e domestica per BYD ATTO 2 CONFORT",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve -l 3000 .",
+    "start": "npx serve -l 3000 ."
+  },
+  "keywords": [
+    "byd",
+    "ev",
+    "charging",
+    "solar",
+    "photovoltaic",
+    "battery"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}
