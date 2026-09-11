@@ -52,7 +52,345 @@
       </div>
     </section>
 
-    <!-- MAIN METRICS DASHBOARD -->
+    <!-- SECTION 1 (TOP): USER INPUT CONTROLS GRID -->
+    <main class="controls-grid">
+
+      <!-- CONTROL CARD 1: PIANIFICAZIONE AUTO -->
+      <div class="control-card">
+        <div class="card-head">
+          <span class="card-icon ev-color">🚘</span>
+          <h2>1. Ricarica Auto (BYD ATTO 2)</h2>
+        </div>
+
+        <!-- HERO HIGHLIGHTED INPUT: CARICA ATTUALE AUTO (%) -->
+        <div class="hero-input-box hero-ev">
+          <div class="hero-label-row">
+            <div>
+              <label for="input-ev-soc" class="hero-title">🔋 Carica Attuale Auto (%)</label>
+              <span class="hero-subtitle">Livello della batteria dell'auto all'avvio</span>
+            </div>
+            <div class="hero-value-badge ev-badge">
+              <strong id="disp-ev-soc">62</strong>%
+            </div>
+          </div>
+          <input type="range" id="input-ev-soc" min="0" max="100" step="1" value="62" class="hero-slider">
+        </div>
+
+        <!-- AMPERAGGIO AUTO -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="input-amp">Amperaggio Ricarica</label>
+            <span class="field-value"><strong id="disp-amp">8</strong> A (<span id="disp-power-w">1840</span> W)</span>
+          </div>
+          <div class="amp-presets">
+            <button type="button" class="amp-btn" data-amp="6">6 A</button>
+            <button type="button" class="amp-btn active" data-amp="8">8 A</button>
+            <button type="button" class="amp-btn" data-amp="10">10 A</button>
+            <button type="button" class="amp-btn" data-amp="13">13 A</button>
+            <button type="button" class="amp-btn" data-amp="16">16 A</button>
+          </div>
+          <input type="range" id="input-amp" min="6" max="16" step="1" value="8">
+        </div>
+
+        <!-- ORARIO RICARICA (DALLE / ALLE) -->
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="input-start-time">Ora Inizio (Dalle)</label>
+            <input type="time" id="input-start-time" value="07:00">
+          </div>
+          <div class="form-group half">
+            <label for="input-end-time">Ora Fine (Alle)</label>
+            <input type="time" id="input-end-time" value="15:00">
+          </div>
+        </div>
+
+        <!-- PARAMETRI AVANZATI AUTO TOGGLE -->
+        <details class="advanced-settings">
+          <summary>⚙️ Parametri Batteria & Efficienza Auto</summary>
+          <div class="form-row margin-top">
+            <div class="form-group half">
+              <label for="input-ev-cap">Capacità Batteria Auto (kWh)</label>
+              <input type="number" id="input-ev-cap" value="60" min="10" max="150" step="1">
+            </div>
+            <div class="form-group half">
+              <label for="input-ev-eff">Efficienza Caricatore (%)</label>
+              <input type="number" id="input-ev-eff" value="64" min="40" max="100" step="1">
+            </div>
+          </div>
+        </details>
+
+      </div>
+
+      <!-- CONTROL CARD 2: BATTERIA CASA & CONSUMI -->
+      <div class="control-card">
+        <div class="card-head">
+          <span class="card-icon home-color">🔋</span>
+          <h2>2. Batteria Casa & Consumi</h2>
+        </div>
+
+        <!-- HERO HIGHLIGHTED INPUT: CARICA ATTUALE BATTERIA CASA (%) -->
+        <div class="hero-input-box hero-home">
+          <div class="hero-label-row">
+            <div>
+              <label for="input-home-soc" class="hero-title">🔋 Carica Attuale Batteria Casa (%)</label>
+              <span class="hero-subtitle">Livello della batteria accumulo casa all'avvio</span>
+            </div>
+            <div class="hero-value-badge home-badge">
+              <strong id="disp-home-soc">68</strong>%
+            </div>
+          </div>
+          <input type="range" id="input-home-soc" min="0" max="100" step="1" value="68" class="hero-slider">
+        </div>
+
+        <!-- ORA RIFERIMENTO (ORA ATTUALE AUTOMATICA vs SIMULATA) -->
+        <div class="time-mode-section">
+          <div class="label-row">
+            <label>🕒 Ora di Riferimento Calcolo</label>
+            <div class="time-mode-selector">
+              <button type="button" id="btn-mode-live" class="mode-btn active" title="Aggiornamento automatico con orologio reale">🔴 Ora Attuale (Live)</button>
+              <button type="button" id="btn-mode-sim" class="mode-btn" title="Inserimento manuale orario di simulazione">⚙️ Ora Simulata</button>
+            </div>
+          </div>
+          <div class="form-row margin-top-sm">
+            <div class="form-group half">
+              <input type="time" id="input-current-time" value="21:00">
+            </div>
+            <div class="form-group half center-vertical">
+              <span class="hint">Copertura notturna fino a 09:00:<br><strong id="disp-overnight-hrs">12.0</strong> ore</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ARIA CONDIZIONATA (AC) -->
+        <div class="ac-section-box">
+          <span class="section-sublabel">❄️ Aria Condizionata (AC):</span>
+          <div class="form-row">
+            <div class="form-group half">
+              <label for="input-ac-load">Consumo AC (kW)</label>
+              <input type="number" id="input-ac-load" value="0.75" min="0" max="5" step="0.05">
+            </div>
+            <div class="form-group half">
+              <label for="input-ac-hours">Ore Uso AC</label>
+              <input type="number" id="input-ac-hours" value="0" min="0" max="24" step="0.5">
+            </div>
+          </div>
+        </div>
+
+        <!-- ORE DI USO ELETTRODOMESTICI AGGIUNTI DINAMICAMENTE -->
+        <div id="custom-hours-container" class="custom-hours-container">
+          <span class="section-sublabel">⚡ Ore Uso Altri Elettrodomestici:</span>
+          <div id="custom-hours-list" class="custom-hours-list">
+            <!-- Dynamic inputs for custom appliances operating hours -->
+          </div>
+        </div>
+
+        <!-- PARAMETRI AVANZATI CASA TOGGLE -->
+        <details class="advanced-settings">
+          <summary>⚙️ Parametri Impianto Casa (Avanzati)</summary>
+          <div class="form-row margin-top">
+            <div class="form-group half">
+              <label for="input-home-cap">Capacità Batteria (kWh)</label>
+              <input type="number" id="input-home-cap" value="18" min="1" max="100" step="0.5">
+            </div>
+            <div class="form-group half">
+              <label for="input-home-min-res">Riserva Minima (%)</label>
+              <input type="number" id="input-home-min-res" value="15" min="0" max="50" step="1">
+            </div>
+          </div>
+          <div class="form-row margin-top">
+            <div class="form-group full">
+              <label for="input-base-load">Consumo Base Casa Costante (kW)</label>
+              <input type="number" id="input-base-load" value="0.2" min="0" max="5" step="0.05">
+            </div>
+          </div>
+        </details>
+
+      </div>
+
+      <!-- CONTROL CARD 3: SOLARE & ELETTRODOMESTICI PERSONALIZZATI -->
+      <div class="control-card">
+        <div class="card-head">
+          <span class="card-icon solar-color">☀️</span>
+          <h2>3. Solare & Altri Elettrodomestici</h2>
+        </div>
+
+        <!-- SELEZIONE POSIZIONE GEOGRAFICA -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="input-city-id">📍 Posizione (Citt&agrave; / Luogo)</label>
+            <span id="location-badge" class="location-badge">📍 Llíria (Valencia)</span>
+          </div>
+          <select id="input-city-id" class="city-select">
+            <optgroup label="🇪🇸 Spagna">
+              <option value="lliria" selected>Llíria (Valencia)</option>
+              <option value="madrid">Madrid</option>
+              <option value="barcellona">Barcellona</option>
+              <option value="siviglia">Siviglia</option>
+            </optgroup>
+            <optgroup label="🇮🇹 Italia">
+              <option value="roma">Roma</option>
+              <option value="milano">Milano</option>
+              <option value="napoli">Napoli</option>
+              <option value="palermo">Palermo</option>
+            </optgroup>
+            <optgroup label="🇫🇷 Francia">
+              <option value="parigi">Parigi</option>
+              <option value="marsiglia">Marsiglia</option>
+              <option value="lione">Lione</option>
+            </optgroup>
+            <optgroup label="🇩🇪 Germania">
+              <option value="berlino">Berlino</option>
+              <option value="monaco">Monaco di Baviera</option>
+            </optgroup>
+            <optgroup label="🇵🇹 Portogallo">
+              <option value="lisbona">Lisbona</option>
+            </optgroup>
+            <optgroup label="🇨🇭 Svizzera">
+              <option value="zurigo">Zurigo</option>
+            </optgroup>
+            <optgroup label="🇦🇹 Austria">
+              <option value="vienna">Vienna</option>
+            </optgroup>
+            <optgroup label="🇧🇪 Belgio">
+              <option value="bruxelles">Bruxelles</option>
+            </optgroup>
+            <optgroup label="🇳🇱 Olanda">
+              <option value="amsterdam">Amsterdam</option>
+            </optgroup>
+            <optgroup label="🇬🇧 Regno Unito">
+              <option value="londra">Londra</option>
+              <option value="edimburgo">Edimburgo</option>
+            </optgroup>
+            <optgroup label="🇨🇿 Rep. Ceca">
+              <option value="praga">Praga</option>
+            </optgroup>
+            <optgroup label="🇵🇱 Polonia">
+              <option value="varsavia">Varsavia</option>
+            </optgroup>
+            <optgroup label="🇭🇺 Ungheria">
+              <option value="budapest">Budapest</option>
+            </optgroup>
+            <optgroup label="🇷🇴 Romania">
+              <option value="bucarest">Bucarest</option>
+            </optgroup>
+            <optgroup label="🇬🇷 Grecia">
+              <option value="atene">Atene</option>
+            </optgroup>
+            <optgroup label="🇧🇬 Bulgaria">
+              <option value="sofia">Sofia</option>
+            </optgroup>
+            <optgroup label="🇷🇸 Serbia">
+              <option value="belgrado">Belgrado</option>
+            </optgroup>
+            <optgroup label="🇭🇷 Croazia">
+              <option value="zagabria">Zagabria</option>
+            </optgroup>
+            <optgroup label="🇸🇮 Slovenia">
+              <option value="lubiana">Lubiana</option>
+            </optgroup>
+            <optgroup label="🇫🇮 Finlandia">
+              <option value="helsinki">Helsinki</option>
+            </optgroup>
+            <optgroup label="🇸🇪 Svezia">
+              <option value="stoccolma">Stoccolma</option>
+            </optgroup>
+            <optgroup label="🇳🇴 Norvegia">
+              <option value="oslo">Oslo</option>
+            </optgroup>
+            <optgroup label="🇩🇰 Danimarca">
+              <option value="copenaghen">Copenaghen</option>
+            </optgroup>
+            <optgroup label="🇮🇪 Irlanda">
+              <option value="dublino">Dublino</option>
+            </optgroup>
+            <optgroup label="🇪🇪 Estonia">
+              <option value="tallinn">Tallinn</option>
+            </optgroup>
+            <optgroup label="🇱🇻 Lettonia">
+              <option value="riga">Riga</option>
+            </optgroup>
+            <optgroup label="🇱🇹 Lituania">
+              <option value="vilnius">Vilnius</option>
+            </optgroup>
+            <optgroup label="🇨🇾 Cipro">
+              <option value="nicosia">Nicosia</option>
+            </optgroup>
+            <optgroup label="🇲🇹 Malta">
+              <option value="valletta">La Valletta</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- DATA DI CALCOLO -->
+        <div class="form-group">
+          <label for="input-calc-date">📅 Data di Calcolo (Meteo Solare)</label>
+          <input type="date" id="input-calc-date">
+        </div>
+
+        <!-- NUVOLOSITA -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="input-cloud">Nuvolosità Prevista</label>
+            <span class="field-value"><span id="icon-weather">⛅</span> <strong id="disp-cloud">32</strong> %</span>
+          </div>
+          <input type="range" id="input-cloud" min="0" max="100" step="1" value="32">
+          <div class="cloud-indicators">
+            <span>0% (Sereno)</span>
+            <span>50% (Nuvoloso)</span>
+            <span>100% (Coperto)</span>
+          </div>
+        </div>
+
+        <!-- POTENZA SOLARE & INVERTER -->
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="input-solar-nom">Potenza Solare Nom. (kW)</label>
+            <input type="number" id="input-solar-nom" value="3.0" min="0" max="20" step="0.1">
+          </div>
+          <div class="form-group half">
+            <label for="input-inverter-max">Max Inverter (kW)</label>
+            <input type="number" id="input-inverter-max" value="2.5" min="1" max="15" step="0.1">
+          </div>
+        </div>
+
+        <!-- GESTIONE ELETTRODOMESTICI PERSONALIZZATI -->
+        <div class="custom-appliances-section">
+          <div class="label-row margin-bottom">
+            <label>⚡ Configurazione Altri Elettrodomestici (Potenza kW)</label>
+          </div>
+          <div id="custom-appliances-list" class="custom-appliances-list">
+            <!-- Dynamic custom appliance entries -->
+          </div>
+          <button type="button" id="btn-add-appliance" class="btn-add-appliance">
+            + Aggiungi Elettrodomestico
+          </button>
+        </div>
+
+        <!-- SUMMARY CALCULATION BRIEF -->
+        <div class="summary-brief-box">
+          <div class="brief-row">
+            <span>Resa Solare Effettiva:</span>
+            <strong id="brief-solar-eff">2.04 kW</strong>
+          </div>
+          <div class="brief-row">
+            <span>Picco Solare Llíria (<span id="brief-peak-range">09:56-14:04</span>):</span>
+            <strong id="brief-peak-hrs">4.1 ore (100%)</strong>
+          </div>
+          <div class="brief-row">
+            <span>Consumo Altri Elettrodomestici:</span>
+            <strong id="brief-custom-kwh">0.00 kWh</strong>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- SECTION 2 (BOTTOM): RESULTS DASHBOARD METRICS GRID -->
+    <section class="results-header">
+      <h2>📊 Risultati & Esito Calcoli</h2>
+    </section>
+
     <section class="metrics-grid">
       
       <!-- METRIC CARD 1: AUTO SOC -->
@@ -60,7 +398,7 @@
         <div class="metric-header">
           <div class="metric-title">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-            SOC Finale Auto
+            Stima Batteria Auto Finale
           </div>
           <span id="metric-ev-soc-badge" class="metric-highlight">+15.70%</span>
         </div>
@@ -84,7 +422,7 @@
         <div class="metric-header">
           <div class="metric-title">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><line x1="6" y1="11" x2="6" y2="17"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-            SOC Finale Casa
+            Stima Batteria Casa Finale
           </div>
           <span id="metric-home-status" class="metric-highlight success">Riserva OK (&ge;15%)</span>
         </div>
@@ -121,7 +459,7 @@
           </div>
           <div class="progress-labels">
             <span>Carico Auto: <strong id="val-ev-kw">1.84 kW</strong></span>
-            <span>Carico Casa: <strong id="val-house-kw">0.20 kW</strong></span>
+            <span>Casa + Altri: <strong id="val-house-kw">0.20 kW</strong></span>
           </div>
         </div>
       </div>
@@ -146,185 +484,11 @@
 
     </section>
 
-    <!-- CONTROL PANELS GRID -->
-    <main class="controls-grid">
-
-      <!-- CONTROL CARD 1: PIANIFICAZIONE AUTO -->
-      <div class="control-card">
-        <div class="card-head">
-          <span class="card-icon ev-color">🚘</span>
-          <h2>Ricarica Auto (BYD ATTO 2)</h2>
-        </div>
-
-        <!-- AMPERAGGIO AUTO -->
-        <div class="form-group">
-          <div class="label-row">
-            <label for="input-amp">Amperaggio Ricarica</label>
-            <span class="field-value"><strong id="disp-amp">8</strong> A (<span id="disp-power-w">1840</span> W)</span>
-          </div>
-          <div class="amp-presets">
-            <button type="button" class="amp-btn" data-amp="6">6 A</button>
-            <button type="button" class="amp-btn active" data-amp="8">8 A</button>
-            <button type="button" class="amp-btn" data-amp="10">10 A</button>
-            <button type="button" class="amp-btn" data-amp="13">13 A</button>
-            <button type="button" class="amp-btn" data-amp="16">16 A</button>
-          </div>
-          <input type="range" id="input-amp" min="6" max="16" step="1" value="8">
-        </div>
-
-        <!-- ORARIO RICARICA (DALLE / ALLE) -->
-        <div class="form-row">
-          <div class="form-group half">
-            <label for="input-start-time">Ora Inizio (Dalle)</label>
-            <input type="time" id="input-start-time" value="07:00">
-          </div>
-          <div class="form-group half">
-            <label for="input-end-time">Ora Fine (Alle)</label>
-            <input type="time" id="input-end-time" value="15:00">
-          </div>
-        </div>
-
-        <!-- SOC ATTUALE AUTO -->
-        <div class="form-group">
-          <div class="label-row">
-            <label for="input-ev-soc">SOC Attuale Auto</label>
-            <span class="field-value"><strong id="disp-ev-soc">62</strong> %</span>
-          </div>
-          <input type="range" id="input-ev-soc" min="0" max="100" step="1" value="62">
-        </div>
-
-        <!-- PARAMETRI AVANZATI AUTO TOGGLE -->
-        <details class="advanced-settings">
-          <summary>⚙️ Parametri Batteria & Efficienza Auto</summary>
-          <div class="form-row margin-top">
-            <div class="form-group half">
-              <label for="input-ev-cap">Capacità Batteria Auto (kWh)</label>
-              <input type="number" id="input-ev-cap" value="60" min="10" max="150" step="1">
-            </div>
-            <div class="form-group half">
-              <label for="input-ev-eff">Efficienza Caricatore (%)</label>
-              <input type="number" id="input-ev-eff" value="64" min="40" max="100" step="1">
-            </div>
-          </div>
-        </details>
-
-      </div>
-
-      <!-- CONTROL CARD 2: BATTERIA CASA & CONSUMI -->
-      <div class="control-card">
-        <div class="card-head">
-          <span class="card-icon home-color">🔋</span>
-          <h2>Batteria Casa & Consumi</h2>
-        </div>
-
-        <!-- SOC ATTUALE CASA -->
-        <div class="form-group">
-          <div class="label-row">
-            <label for="input-home-soc">SOC Attuale Batteria Casa</label>
-            <span class="field-value"><strong id="disp-home-soc">68</strong> %</span>
-          </div>
-          <input type="range" id="input-home-soc" min="0" max="100" step="1" value="68">
-        </div>
-
-        <!-- ORA ATTUALE & ACCENSIONE AC -->
-        <div class="form-row">
-          <div class="form-group half">
-            <label for="input-current-time">Ora Attuale</label>
-            <input type="time" id="input-current-time" value="21:00">
-            <span class="hint">Copertura notturna fino a 09:00: <strong id="disp-overnight-hrs">12</strong>h</span>
-          </div>
-          <div class="form-group half">
-            <label for="input-ac-hours">Ore Uso Aria Condiz.</label>
-            <input type="number" id="input-ac-hours" value="0" min="0" max="24" step="0.5">
-            <span class="hint">Assorbimento: <strong>0.75 kW</strong></span>
-          </div>
-        </div>
-
-        <!-- PARAMETRI AVANZATI CASA TOGGLE -->
-        <details class="advanced-settings">
-          <summary>⚙️ Parametri Impianto Casa</summary>
-          <div class="form-row margin-top">
-            <div class="form-group half">
-              <label for="input-home-cap">Capacità Batteria (kWh)</label>
-              <input type="number" id="input-home-cap" value="18" min="1" max="100" step="0.5">
-            </div>
-            <div class="form-group half">
-              <label for="input-home-min-res">Riserva Minima (%)</label>
-              <input type="number" id="input-home-min-res" value="15" min="0" max="50" step="1">
-            </div>
-          </div>
-          <div class="form-row margin-top">
-            <div class="form-group half">
-              <label for="input-base-load">Consumo Base Casa (kW)</label>
-              <input type="number" id="input-base-load" value="0.2" min="0" max="5" step="0.05">
-            </div>
-            <div class="form-group half">
-              <label for="input-ac-load">Consumo Condizionatore (kW)</label>
-              <input type="number" id="input-ac-load" value="0.75" min="0" max="5" step="0.05">
-            </div>
-          </div>
-        </details>
-
-      </div>
-
-      <!-- CONTROL CARD 3: SOLARE & INVERTER -->
-      <div class="control-card">
-        <div class="card-head">
-          <span class="card-icon solar-color">☀️</span>
-          <h2>Produzione Solare & Inverter</h2>
-        </div>
-
-        <!-- NUVOLOSITA -->
-        <div class="form-group">
-          <div class="label-row">
-            <label for="input-cloud">Nuvolosità Prevista</label>
-            <span class="field-value"><span id="icon-weather">⛅</span> <strong id="disp-cloud">32</strong> %</span>
-          </div>
-          <input type="range" id="input-cloud" min="0" max="100" step="1" value="32">
-          <div class="cloud-indicators">
-            <span>0% (Sereno)</span>
-            <span>50% (Nuvoloso)</span>
-            <span>100% (Coperto)</span>
-          </div>
-        </div>
-
-        <!-- POTENZA SOLARE & INVERTER -->
-        <div class="form-row">
-          <div class="form-group half">
-            <label for="input-solar-nom">Potenza Solare Nom. (kW)</label>
-            <input type="number" id="input-solar-nom" value="3.0" min="0" max="20" step="0.1">
-          </div>
-          <div class="form-group half">
-            <label for="input-inverter-max">Max Inverter (kW)</label>
-            <input type="number" id="input-inverter-max" value="2.5" min="1" max="15" step="0.1">
-          </div>
-        </div>
-
-        <!-- SUMMARY CALCULATION BRIEF -->
-        <div class="summary-brief-box">
-          <div class="brief-row">
-            <span>Resa Solare Effettiva:</span>
-            <strong id="brief-solar-eff">2.04 kW</strong>
-          </div>
-          <div class="brief-row">
-            <span>Fascia Picco Solare (10:00-14:00):</span>
-            <strong id="brief-peak-hrs">4.0 ore (100%)</strong>
-          </div>
-          <div class="brief-row">
-            <span>Fascia Fuori Picco Solare:</span>
-            <strong id="brief-offpeak-hrs">4.0 ore (40%)</strong>
-          </div>
-        </div>
-
-      </div>
-
-    </main>
-
-    <!-- TIMELINE CHART SECTION -->
+    <!-- SECTION 3 (BOTTOM): TIMELINE CHART SECTION -->
     <section class="timeline-section">
       <div class="section-title">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Timeline Grafica 24 Ore (Produzione Solare vs Ricarica EV)
+        Timeline Grafica 24 Ore (Produzione Solare Llíria vs Ricarica EV)
       </div>
       <div class="timeline-container">
         <!-- 24 HOURS HOURLY BAR GRAPH -->
@@ -332,7 +496,7 @@
           <!-- Dynamically populated via app.js -->
         </div>
         <div class="timeline-legend">
-          <div class="legend-item"><span class="legend-box box-solar"></span> Produzione Solare Picco (10:00 - 14:00)</div>
+          <div class="legend-item"><span class="legend-box box-solar"></span> Produzione Solare Picco Llíria</div>
           <div class="legend-item"><span class="legend-box box-solar-low"></span> Produzione Solare Fuori Picco (40%)</div>
           <div class="legend-item"><span class="legend-box box-ev"></span> Ricarica EV Programmata</div>
           <div class="legend-item"><span class="legend-box box-night"></span> Copertura Notturna Casa</div>
@@ -340,11 +504,11 @@
       </div>
     </section>
 
-    <!-- DETAILED SPREADSHEET TABLE AUDIT -->
+    <!-- SECTION 4 (BOTTOM): DETAILED SPREADSHEET TABLE AUDIT -->
     <section class="table-section">
       <details>
         <summary class="table-summary-btn">
-          📊 Visualizza Tabella di Dettaglio Parametri (Confronto 1:1 ODS)
+          📊 Visualizza Tabella di Dettaglio Parametri (Confronto 1:1 ODS + Meteo Llíria)
         </summary>
         <div class="table-responsive">
           <table class="audit-table">
@@ -367,7 +531,7 @@
     <!-- FOOTER -->
     <footer class="app-footer">
       <p>Pianificatore Ricarica EV per <strong>BYD ATTO 2 CONFORT</strong> — Basato su "Calcolo Ricariche.ods"</p>
-      <p class="subfooter">Creato per ottimizzazione carica solare domestica monofase V2C Trydan / Voltronic Inverter</p>
+      <p class="subfooter">Creato per ottimizzazione carica solare domestica Llíria (Valencia) monofase V2C Trydan / Voltronic Inverter</p>
     </footer>
 
   </div>

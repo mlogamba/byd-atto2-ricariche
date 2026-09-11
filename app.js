@@ -1,8 +1,16 @@
 /**
  * Main Application Logic & UI Controller for BYD ATTO 2 EV Charging Planner
+ * Supports dynamic custom household electrical appliances, Live/Simulated time mode,
+ * AC input controls, and Seasonal Dynamic Solar Peak for Llíria (Valencia, Spain)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Custom Appliances State Array
+  let customAppliances = [];
+
+  // Time Mode State: 'live' or 'simulated'
+  let timeMode = 'live';
+
   // DOM Input Elements
   const inputs = {
     evAmperage: document.getElementById('input-amp'),
@@ -15,17 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
     homeBatteryCurrentSoc: document.getElementById('input-home-soc'),
     currentTime: document.getElementById('input-current-time'),
     acHours: document.getElementById('input-ac-hours'),
+    acLoad: document.getElementById('input-ac-load'),
     homeBatteryCapacity: document.getElementById('input-home-cap'),
     homeBatteryMinReserve: document.getElementById('input-home-min-res'),
     houseBaseLoad: document.getElementById('input-base-load'),
-    acLoad: document.getElementById('input-ac-load'),
 
+    calcDate: document.getElementById('input-calc-date'),
     cloudiness: document.getElementById('input-cloud'),
     solarNominal: document.getElementById('input-solar-nom'),
-    inverterMaxPower: document.getElementById('input-inverter-max')
+    inverterMaxPower: document.getElementById('input-inverter-max'),
+    cityId: document.getElementById('input-city-id')
   };
 
-  // DOM Display Labels
+  // DOM Display & Control Labels
   const disp = {
     amp: document.getElementById('disp-amp'),
     powerW: document.getElementById('disp-power-w'),
@@ -34,6 +44,10 @@ document.addEventListener('DOMContentLoaded', () => {
     overnightHrs: document.getElementById('disp-overnight-hrs'),
     cloud: document.getElementById('disp-cloud'),
     iconWeather: document.getElementById('icon-weather'),
+
+    // Time Mode Buttons
+    btnModeLive: document.getElementById('btn-mode-live'),
+    btnModeSim: document.getElementById('btn-mode-sim'),
 
     // Badges
     badgeCompat: document.getElementById('badge-compat'),
@@ -67,11 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
     valChargeHours: document.getElementById('val-charge-hours'),
 
     briefSolarEff: document.getElementById('brief-solar-eff'),
+    briefPeakRange: document.getElementById('brief-peak-range'),
     briefPeakHrs: document.getElementById('brief-peak-hrs'),
-    briefOffpeakHrs: document.getElementById('brief-offpeak-hrs'),
+    briefCustomKwh: document.getElementById('brief-custom-kwh'),
 
     timelineHoursBar: document.getElementById('timeline-hours-bar'),
-    auditTableBody: document.getElementById('audit-table-body')
+    auditTableBody: document.getElementById('audit-table-body'),
+
+    // Appliance Containers & Buttons
+    btnAddAppliance: document.getElementById('btn-add-appliance'),
+    customAppliancesList: document.getElementById('custom-appliances-list'),
+    customHoursList: document.getElementById('custom-hours-list')
   };
 
   // Amp Buttons
@@ -79,12 +99,77 @@ document.addEventListener('DOMContentLoaded', () => {
   // Scenario Preset Buttons
   const presetBtns = document.querySelectorAll('.preset-btn');
 
+  // Initialize Calc Date with Today's Date if empty
+  if (inputs.calcDate && !inputs.calcDate.value) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    inputs.calcDate.value = todayStr;
+  }
+
   // Load Saved State or Defaults
   loadSavedState();
 
-  // Attach Event Listeners to all inputs
+  // Live Clock Interval Timer
+  setInterval(tickLiveClock, 1000);
+
+  // Time Mode Buttons Event Handlers
+  if (disp.btnModeLive) {
+    disp.btnModeLive.addEventListener('click', () => {
+      setTimeMode('live');
+    });
+  }
+
+  if (disp.btnModeSim) {
+    disp.btnModeSim.addEventListener('click', () => {
+      setTimeMode('simulated');
+    });
+  }
+
+  if (inputs.currentTime) {
+    inputs.currentTime.addEventListener('input', () => {
+      // If user manually edits time input, switch to simulated mode
+      if (timeMode !== 'simulated') {
+        setTimeMode('simulated');
+      } else {
+        updateCalculator();
+      }
+    });
+  }
+
+  function setTimeMode(mode) {
+    timeMode = mode;
+    if (timeMode === 'live') {
+      disp.btnModeLive.classList.add('active');
+      disp.btnModeSim.classList.remove('active');
+      inputs.currentTime.disabled = true;
+      tickLiveClock();
+    } else {
+      disp.btnModeSim.classList.add('active');
+      disp.btnModeLive.classList.remove('active');
+      inputs.currentTime.disabled = false;
+      updateCalculator();
+    }
+  }
+
+  function getSystemTimeStr() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  }
+
+  function tickLiveClock() {
+    if (timeMode === 'live') {
+      const nowStr = getSystemTimeStr();
+      if (inputs.currentTime.value !== nowStr) {
+        inputs.currentTime.value = nowStr;
+        updateCalculator();
+      }
+    }
+  }
+
+  // Attach Event Listeners to all standard inputs
   Object.values(inputs).forEach(input => {
-    if (input) {
+    if (input && input !== inputs.currentTime) {
       input.addEventListener('input', updateCalculator);
       input.addEventListener('change', updateCalculator);
     }
@@ -110,6 +195,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Add Appliance Handler
+  if (disp.btnAddAppliance) {
+    disp.btnAddAppliance.addEventListener('click', () => {
+      const newApp = {
+        id: 'app_' + Date.now(),
+        name: 'Elettrodomestico ' + (customAppliances.length + 1),
+        powerKw: 1.0,
+        hours: 0
+      };
+      customAppliances.push(newApp);
+      renderCustomAppliancesUI();
+      updateCalculator();
+    });
+  }
+
   function updateAmpButtonsActive(ampVal) {
     ampBtns.forEach(btn => {
       if (btn.getAttribute('data-amp') === String(ampVal)) {
@@ -120,27 +220,128 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function renderCustomAppliancesUI() {
+    // 1. Render Appliance Name & Power list in Card 3
+    if (disp.customAppliancesList) {
+      disp.customAppliancesList.innerHTML = '';
+      customAppliances.forEach((app, idx) => {
+        const row = document.createElement('div');
+        row.className = 'appliance-item-row';
+        row.innerHTML = `
+          <input type="text" value="${app.name}" placeholder="Nome (es. Forno)" data-id="${app.id}" class="app-name-input">
+          <input type="number" value="${app.powerKw}" placeholder="kW" min="0.1" max="10" step="0.1" data-id="${app.id}" class="app-power-input">
+          <button type="button" class="btn-delete-appliance" data-id="${app.id}" title="Elimina">🗑️</button>
+        `;
+        disp.customAppliancesList.appendChild(row);
+      });
+
+      // Listeners for Name change
+      disp.customAppliancesList.querySelectorAll('.app-name-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const id = e.target.getAttribute('data-id');
+          const app = customAppliances.find(a => a.id === id);
+          if (app) {
+            app.name = e.target.value;
+            renderCustomHoursListOnly();
+            updateCalculator();
+          }
+        });
+      });
+
+      // Listeners for Power (kW) change
+      disp.customAppliancesList.querySelectorAll('.app-power-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const id = e.target.getAttribute('data-id');
+          const app = customAppliances.find(a => a.id === id);
+          if (app) {
+            const parsed = parseFloat(e.target.value);
+            app.powerKw = isNaN(parsed) ? 0 : parsed;
+            renderCustomHoursListOnly();
+            updateCalculator();
+          }
+        });
+      });
+
+      // Listeners for Delete button
+      disp.customAppliancesList.querySelectorAll('.btn-delete-appliance').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.target.getAttribute('data-id');
+          customAppliances = customAppliances.filter(a => a.id !== id);
+          renderCustomAppliancesUI();
+          updateCalculator();
+        });
+      });
+    }
+
+    // 2. Render Appliance Hours list in Card 2
+    renderCustomHoursListOnly();
+  }
+
+  function renderCustomHoursListOnly() {
+    if (!disp.customHoursList) return;
+    disp.customHoursList.innerHTML = '';
+
+    if (customAppliances.length === 0) {
+      disp.customHoursList.innerHTML = `<span style="font-size: 0.76rem; color: var(--text-subtle); font-style: italic;">Nessun altro elettrodomestico aggiunto.</span>`;
+      return;
+    }
+
+    customAppliances.forEach(app => {
+      const row = document.createElement('div');
+      row.className = 'appliance-hour-row';
+      row.innerHTML = `
+        <span class="appliance-name">${app.name}</span>
+        <span class="appliance-kw-tag">${app.powerKw.toFixed(1)} kW</span>
+        <input type="number" value="${app.hours}" min="0" max="24" step="0.5" data-id="${app.id}" class="app-hours-input" title="Ore di utilizzo">
+      `;
+      disp.customHoursList.appendChild(row);
+    });
+
+    disp.customHoursList.querySelectorAll('.app-hours-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const id = e.target.getAttribute('data-id');
+        const app = customAppliances.find(a => a.id === id);
+        if (app) {
+          const parsed = parseFloat(e.target.value);
+          app.hours = isNaN(parsed) ? 0 : parsed;
+          updateCalculator();
+        }
+      });
+    });
+  }
+
+  function numVal(inputEl, defaultVal) {
+    if (!inputEl) return defaultVal;
+    const n = parseFloat(inputEl.value);
+    return isNaN(n) ? defaultVal : n;
+  }
+
   function getFormValues() {
+    const todayStr = new Date().toISOString().split('T')[0];
     return {
-      homeBatteryCapacity: parseFloat(inputs.homeBatteryCapacity.value) || 18,
-      homeBatteryMinReserve: parseFloat(inputs.homeBatteryMinReserve.value) || 15,
-      homeBatteryCurrentSoc: parseFloat(inputs.homeBatteryCurrentSoc.value) || 68,
-      houseBaseLoad: parseFloat(inputs.houseBaseLoad.value) || 0.2,
-      acLoad: parseFloat(inputs.acLoad.value) || 0.75,
-      acHours: parseFloat(inputs.acHours.value) || 0,
-      currentTime: inputs.currentTime.value || "21:00",
+      homeBatteryCapacity: numVal(inputs.homeBatteryCapacity, 18),
+      homeBatteryMinReserve: numVal(inputs.homeBatteryMinReserve, 15),
+      homeBatteryCurrentSoc: numVal(inputs.homeBatteryCurrentSoc, 68),
+      houseBaseLoad: numVal(inputs.houseBaseLoad, 0.2),
+      acLoad: numVal(inputs.acLoad, 0.75),
+      acHours: numVal(inputs.acHours, 0),
+      currentTime: inputs.currentTime ? inputs.currentTime.value : "21:00",
 
-      solarNominal: parseFloat(inputs.solarNominal.value) || 3.0,
-      cloudiness: parseFloat(inputs.cloudiness.value) || 32,
+      calcDate: inputs.calcDate ? inputs.calcDate.value : todayStr,
+      solarNominal: numVal(inputs.solarNominal, 3.0),
+      cloudiness: numVal(inputs.cloudiness, 32),
+      cityId: inputs.cityId ? inputs.cityId.value : 'lliria',
 
-      evAmperage: parseFloat(inputs.evAmperage.value) || 8,
-      evBatteryCapacity: parseFloat(inputs.evBatteryCapacity.value) || 60,
-      evEfficiency: (parseFloat(inputs.evEfficiency.value) || 64) / 100,
-      inverterMaxPower: parseFloat(inputs.inverterMaxPower.value) || 2.5,
+      evAmperage: numVal(inputs.evAmperage, 8),
+      evBatteryCapacity: numVal(inputs.evBatteryCapacity, 60),
+      evEfficiency: numVal(inputs.evEfficiency, 64) / 100,
+      inverterMaxPower: numVal(inputs.inverterMaxPower, 2.5),
 
-      startTime: inputs.startTime.value || "07:00",
-      endTime: inputs.endTime.value || "15:00",
-      evCurrentSoc: parseFloat(inputs.evCurrentSoc.value) || 62
+      startTime: inputs.startTime ? inputs.startTime.value : "07:00",
+      endTime: inputs.endTime ? inputs.endTime.value : "15:00",
+      evCurrentSoc: numVal(inputs.evCurrentSoc, 62),
+
+      customAppliances: customAppliances
     };
   }
 
@@ -212,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
     disp.valInverterLoad.textContent = res.totalInverterLoadKw.toFixed(2);
     disp.valEvKw.textContent = res.grossEvPowerKw.toFixed(2) + ' kW';
     const activeAcKw = vals.acHours > 0 ? vals.acLoad : 0;
-    disp.valHouseKw.textContent = (vals.houseBaseLoad + activeAcKw).toFixed(2) + ' kW';
+    const houseAndOtherKw = vals.houseBaseLoad + activeAcKw + res.activeCustomPowerKw;
+    disp.valHouseKw.textContent = houseAndOtherKw.toFixed(2) + ' kW';
     disp.metricInverterMax.textContent = 'Max: ' + vals.inverterMaxPower.toFixed(2) + ' kW';
 
     const inverterPct = Math.min(100, (res.totalInverterLoadKw / vals.inverterMaxPower) * 100);
@@ -223,15 +425,20 @@ document.addEventListener('DOMContentLoaded', () => {
       disp.barInverterLoad.className = 'progress-fill fill-inverter overload';
     }
 
-    // Metric 4: Solar Contribution
+    // Metric 4: Solar Contribution & Llíria Dynamic Solar Peak Brief
     disp.valSolarEffKw.textContent = 'Resa: ' + res.effectiveSolarKw.toFixed(2) + ' kW';
     disp.valSolarContribKwh.textContent = res.solarContribKwh.toFixed(2);
     disp.valDrawnHomeKwh.textContent = res.grossEnergyDrawnFromHomeKwh.toFixed(2) + ' kWh';
     disp.valChargeHours.textContent = res.chargeHours.toFixed(1) + ' h';
 
     disp.briefSolarEff.textContent = res.effectiveSolarKw.toFixed(2) + ' kW';
-    disp.briefPeakHrs.textContent = res.peakSolarHours.toFixed(1) + ' ore (100%)';
-    disp.briefOffpeakHrs.textContent = res.offpeakSolarHours.toFixed(1) + ' ore (40%)';
+    disp.briefPeakRange.textContent = `${res.solarPeak.startStr} - ${res.solarPeak.endStr}`;
+    disp.briefPeakHrs.textContent = res.solarPeak.peakDuration.toFixed(1) + ' ore (100%)';
+    disp.briefCustomKwh.textContent = res.totalCustomConsumptionKwh.toFixed(2) + ' kWh';
+
+    // Update location badge dynamically
+    const locationBadge = document.getElementById('location-badge');
+    if (locationBadge) locationBadge.textContent = '📍 ' + (res.solarPeak.cityName || 'Llíria (Valencia)');
 
     // Render Timeline & Audit Table
     renderTimeline(vals, res);
@@ -244,14 +451,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const endH = parseTimeToHours(vals.endTime);
     const curH = parseTimeToHours(vals.currentTime);
 
+    const peakStartH = res.lliriaSolarPeak.startH;
+    const peakEndH = res.lliriaSolarPeak.endH;
+
     for (let h = 0; h < 24; h++) {
       const slot = document.createElement('div');
       slot.className = 'hour-slot';
       slot.textContent = (h < 10 ? '0' : '') + h;
 
-      // Peak Solar Window: 10 to 13 (10:00 to 14:00)
-      const isPeakSolar = h >= 10 && h < 14;
-      const isOffpeakSolar = (h >= 7 && h < 10) || (h >= 14 && h < 19);
+      // Seasonal Dynamic Peak Solar Window for Llíria
+      const isPeakSolar = h >= Math.floor(peakStartH) && h < Math.ceil(peakEndH);
+      const isOffpeakSolar = (h >= 7 && h < Math.floor(peakStartH)) || (h >= Math.ceil(peakEndH) && h < 19);
 
       if (isPeakSolar) slot.classList.add('solar-peak');
       else if (isOffpeakSolar) slot.classList.add('solar-offpeak');
@@ -286,8 +496,12 @@ document.addEventListener('DOMContentLoaded', () => {
       { name: "Consumo Base Casa", val: vals.houseBaseLoad, unit: "kW", note: "Consumo di fondo costante" },
       { name: "Consumo Condizionatore", val: vals.acLoad, unit: "kW", note: "Assorbimento medio AC" },
       { name: "Ore Uso Aria Condizionata", val: vals.acHours, unit: "ore", note: "Ore di accensione AC" },
-      { name: "Ora Attuale", val: vals.currentTime, unit: "ora", note: "Ora di riferimento" },
+      { name: "Consumo Altri Elettrodomestici", val: res.totalCustomConsumptionKwh.toFixed(2), unit: "kWh", note: `Somma ${customAppliances.length} elettrodomestici` },
+      { name: "Ora Riferimento Calcolo", val: `${vals.currentTime} (${timeMode === 'live' ? 'Live' : 'Simulata'})`, unit: "ora", note: "Ora usata per calcolo notturno" },
       { name: "Ore Copertura Notturna", val: res.overnightHours.toFixed(1), unit: "ore", note: "Ore fino a produzione solare (09:00)" },
+      { name: "Data di Calcolo (Meteo Solare)", val: vals.calcDate, unit: "data", note: "Data usata per declinazione solare" },
+      { name: "Posizione / Città", val: res.solarPeak.cityName || 'Llíria (Valencia)', unit: "luogo", note: `Lat. modello solare` },
+      { name: "Fascia Picco Solare", val: `${res.solarPeak.startStr} - ${res.solarPeak.endStr}`, unit: "ore", note: `Durata picco 100%: ${res.solarPeak.peakDuration.toFixed(1)}h` },
       { name: "Potenza Solare Nominale", val: vals.solarNominal, unit: "kW", note: "Potenza picco impianto FV" },
       { name: "Nuvolosità Prevista", val: vals.cloudiness, unit: "%", note: "Riduzione resa solare" },
       { name: "Resa Solare Effettiva", val: res.effectiveSolarKw.toFixed(2), unit: "kW", note: "B10 * (1 - Cloud%)" },
@@ -299,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
       { name: "Ore Ricarica Auto", val: res.chargeHours.toFixed(1), unit: "ore", note: "Durata totale ricarica" },
       { name: "Energia Iniziale Casa", val: res.initialHomeBatteryKwh.toFixed(2), unit: "kWh", note: "Energia presente all'avvio" },
       { name: "Riserva Minima kWh", val: res.minReserveKwh.toFixed(2), unit: "kWh", note: "Energia intoccabile casa" },
-      { name: "Consumo Casa Totale", val: res.totalHouseConsumptionKwh.toFixed(2), unit: "kWh", note: "Consumo fisso + AC" },
+      { name: "Consumo Casa Totale", val: res.totalHouseConsumptionKwh.toFixed(2), unit: "kWh", note: "Base + AC + Altri Elettrodomestici" },
       { name: "Energia Lorda Prelevata Auto", val: res.grossEnergyDrawnFromHomeKwh.toFixed(3), unit: "kWh", note: "Prelievo netto da batteria casa" },
       { name: "Verifica Carico Inverter", val: res.inverterStatus, unit: "-", note: `Load: ${res.totalInverterLoadKw.toFixed(2)} kW` },
       { name: "SOC Finale Casa Stimato", val: res.finalHomeBatterySocPct.toFixed(2) + "%", unit: "%", note: "Percentuale residua casa" },
@@ -335,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
       inputs.endTime.value = "15:00";
       inputs.cloudiness.value = 32;
       inputs.acHours.value = 0;
+      setTimeMode('simulated');
       inputs.currentTime.value = "21:00";
     } else if (key === 'fast13') {
       inputs.evAmperage.value = 13;
@@ -350,30 +565,42 @@ document.addEventListener('DOMContentLoaded', () => {
       inputs.acHours.value = 6;
       inputs.acLoad.value = 0.75;
     } else if (key === 'reset') {
+      // ── DEFAULT ODS — valori reali dell'impianto (letti dai dati inseriti) ──
       inputs.evAmperage.value = 8;
-      inputs.startTime.value = "07:00";
-      inputs.endTime.value = "15:00";
-      inputs.evCurrentSoc.value = 62;
+      inputs.startTime.value = "09:00";
+      inputs.endTime.value = "23:00";
+      inputs.evCurrentSoc.value = 63;
       inputs.evBatteryCapacity.value = 60;
       inputs.evEfficiency.value = 64;
 
-      inputs.homeBatteryCurrentSoc.value = 68;
-      inputs.currentTime.value = "21:00";
+      inputs.homeBatteryCurrentSoc.value = 100;
       inputs.acHours.value = 0;
       inputs.homeBatteryCapacity.value = 18;
       inputs.homeBatteryMinReserve.value = 15;
       inputs.houseBaseLoad.value = 0.2;
       inputs.acLoad.value = 0.75;
 
-      inputs.cloudiness.value = 32;
-      inputs.solarNominal.value = 3.0;
-      inputs.inverterMaxPower.value = 2.5;
+      inputs.cloudiness.value = 0;
+      inputs.solarNominal.value = 2.4;
+      inputs.inverterMaxPower.value = 2.4;
+
+      if (inputs.cityId) inputs.cityId.value = 'lliria';
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (inputs.calcDate) inputs.calcDate.value = todayStr;
+
+      setTimeMode('live');
+
+      customAppliances = [];
+      renderCustomAppliancesUI();
     }
     updateCalculator();
   }
 
   function saveState(vals) {
     try {
+      vals.timeMode = timeMode;
+      vals.cityId = inputs.cityId ? inputs.cityId.value : 'lliria';
       localStorage.setItem('byd_atto2_calc_state', JSON.stringify(vals));
     } catch (e) {}
   }
@@ -383,26 +610,39 @@ document.addEventListener('DOMContentLoaded', () => {
       const saved = localStorage.getItem('byd_atto2_calc_state');
       if (saved) {
         const vals = JSON.parse(saved);
-        if (vals.evAmperage) inputs.evAmperage.value = vals.evAmperage;
+        if (vals.evAmperage !== undefined) inputs.evAmperage.value = vals.evAmperage;
         if (vals.startTime) inputs.startTime.value = vals.startTime;
         if (vals.endTime) inputs.endTime.value = vals.endTime;
         if (vals.evCurrentSoc !== undefined) inputs.evCurrentSoc.value = vals.evCurrentSoc;
-        if (vals.evBatteryCapacity) inputs.evBatteryCapacity.value = vals.evBatteryCapacity;
-        if (vals.evEfficiency) inputs.evEfficiency.value = vals.evEfficiency * 100;
+        if (vals.evBatteryCapacity !== undefined) inputs.evBatteryCapacity.value = vals.evBatteryCapacity;
+        if (vals.evEfficiency !== undefined) inputs.evEfficiency.value = vals.evEfficiency * 100;
 
         if (vals.homeBatteryCurrentSoc !== undefined) inputs.homeBatteryCurrentSoc.value = vals.homeBatteryCurrentSoc;
         if (vals.currentTime) inputs.currentTime.value = vals.currentTime;
         if (vals.acHours !== undefined) inputs.acHours.value = vals.acHours;
-        if (vals.homeBatteryCapacity) inputs.homeBatteryCapacity.value = vals.homeBatteryCapacity;
+        if (vals.acLoad !== undefined) inputs.acLoad.value = vals.acLoad;
+        if (vals.homeBatteryCapacity !== undefined) inputs.homeBatteryCapacity.value = vals.homeBatteryCapacity;
         if (vals.homeBatteryMinReserve !== undefined) inputs.homeBatteryMinReserve.value = vals.homeBatteryMinReserve;
         if (vals.houseBaseLoad !== undefined) inputs.houseBaseLoad.value = vals.houseBaseLoad;
-        if (vals.acLoad !== undefined) inputs.acLoad.value = vals.acLoad;
 
+        if (vals.calcDate && inputs.calcDate) inputs.calcDate.value = vals.calcDate;
         if (vals.cloudiness !== undefined) inputs.cloudiness.value = vals.cloudiness;
-        if (vals.solarNominal) inputs.solarNominal.value = vals.solarNominal;
-        if (vals.inverterMaxPower) inputs.inverterMaxPower.value = vals.inverterMaxPower;
+        if (vals.solarNominal !== undefined) inputs.solarNominal.value = vals.solarNominal;
+        if (vals.inverterMaxPower !== undefined) inputs.inverterMaxPower.value = vals.inverterMaxPower;
+        if (vals.cityId && inputs.cityId) inputs.cityId.value = vals.cityId;
+
+        if (Array.isArray(vals.customAppliances)) {
+          customAppliances = vals.customAppliances;
+        }
+
+        if (vals.timeMode) {
+          timeMode = vals.timeMode;
+        }
       }
     } catch (e) {}
+
+    setTimeMode(timeMode);
+    renderCustomAppliancesUI();
     updateCalculator();
   }
 });
